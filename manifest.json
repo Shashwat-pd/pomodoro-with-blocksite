@@ -1,0 +1,29 @@
+{
+  "manifest_version": 2,
+  "name": "Pomodoro Timer with Site Blocker",
+  "description": "A Pomodoro timer that blocks selected sites during work mode.",
+  "version": "1.0",
+  "permissions": [
+    "tabs",
+    "webNavigation",
+    "storage",
+    "activeTab"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content-script.js"]
+    }
+  ],
+  "background": {
+    "scripts": ["background.js"],
+    "persistent": true
+  },
+  "browser_action": {
+    "default_popup": "popup.html",
+    "default_icon": "icons/icon.png"
+  },
+  "icons": {
+    "48": "icons/icon.png"
+  }
+}
