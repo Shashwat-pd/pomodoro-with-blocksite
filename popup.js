@@ -28,10 +28,23 @@ startStopBtn.addEventListener("click", () => {
     }).catch(console.error);
   }
 });
+//send notification
+
+function sendNotification(){
+  let notifDetail = {
+    type: "basic",
+    title: "Ding!",
+    iconUrl: "icons/icon.png",
+    message: "BreakTime"
+};
+browser.notifications.create(notifDetail);
+}
+
 
 
 browser.runtime.onMessage.addListener((message) => {
   if (message.action === "updateTimer") {
+    browser.browserAction.setBadgeText({ text: formatTime(message.remainingTime) });
     // Update the UI elements with the new state
     timerDisplay.textContent = formatTime(message.remainingTime);
     sessionCount.textContent = message.sessionCount;
@@ -42,6 +55,9 @@ browser.runtime.onMessage.addListener((message) => {
   } else if (message.action === "timerStopped") {
     timerDisplay.textContent = "05:00";
     document.body.style.border = `5px solid ${message.borderColor}`;
+  }
+  else if (message.action === "sendNotification") {
+    sendNotification();
   }
 
 });

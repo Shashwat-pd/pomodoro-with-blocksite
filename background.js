@@ -1,6 +1,6 @@
 console.log("Pomodoro Timer Extension Background Script Loaded");
 
-let timerDuration = 0.2 * 60 * 1000; // 25 minutes in milliseconds
+let timerDuration = 0.1 * 60 * 1000; // 25 minutes in milliseconds
 let breakDuration = 0.2 * 60 * 1000; // 5 minutes in milliseconds
 let remainingTime = timerDuration / 1000; // Remaining time in seconds
 let timerInterval = null;
@@ -27,11 +27,12 @@ function closeBlockedTabs() {
       const url = new URL(tab.url).hostname.replace("www.", ""); // Normalize hostname
       if (blockedSites.includes(url)) {
         console.log(`Closing blocked site tab: ${url}`);
-        browser.tabs.remove(tab.id); // Close the tab
+        browser.tabs.remove(tab.id); 
       }
     });
   }).catch((error) => console.error("Error closing blocked tabs: ", error));
 }
+
 
 
 browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
@@ -64,7 +65,13 @@ function startPomodoroTimer() {
       timerInterval = null;
       isWorkMode = false;
       console.log("Work session complete. Time for a break!");
+      browser.runtime.sendMessage({
+        action:"sendNotification"
+      });
+
+
       startBreakTimer();
+  
     }
   }, 1000);
 }
