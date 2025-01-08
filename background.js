@@ -1,7 +1,7 @@
 console.log("Pomodoro Timer Extension Background Script Loaded");
 
 let timerDuration = 0.1 * 60 * 1000; // 25 minutes in milliseconds
-let breakDuration = 0.2 * 60 * 1000; // 5 minutes in milliseconds
+let breakDuration = 5 * 60 * 1000; // 5 minutes in milliseconds
 let remainingTime = timerDuration / 1000; // Remaining time in seconds
 let timerInterval = null;
 let isWorkMode = false;
@@ -10,7 +10,7 @@ let breakCount = 0;
 let blockedSites = ["reddit.com", "x.com", "instagram.com"];
 let activeTabId = null;
 let borderColor = null;
-let redirectUrl = "https://www.google.com";
+let redirectUrl = "https://www.neetcode.io";
 
 function checkBlocklist(tab) {
   const url = new URL(tab.url);
