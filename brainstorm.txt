@@ -6,7 +6,7 @@ start session
 
 
 
-pause button with reason dropdown
+
 switching from workmode to break isn't automatic. Timer still goes on. click of a button to switching
 calendar sync
 

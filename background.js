@@ -1,16 +1,50 @@
 console.log("Pomodoro Timer Extension Background Script Loaded");
 
-let timerDuration = 25 * 60 * 1000; // 25 minutes in milliseconds
+let timerDuration = 0.1 * 60 * 1000; // 25 minutes in milliseconds
 let breakDuration = 5 * 60 * 1000; // 5 minutes in milliseconds
 let remainingTime = timerDuration / 1000; // Remaining time in seconds
+let startTimestamp = null;
 let timerInterval = null;
 let isWorkMode = false;
+
 let sessionCount = 0;
 let breakCount = 0;
 let blockedSites = ["reddit.com", "x.com", "instagram.com"];
 let activeTabId = null;
 let borderColor = null;
 let redirectUrl = "https://www.neetcode.io";
+
+
+let alarmAt = null;
+
+
+//shoot notification when alarm goes off
+browser.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === "pomodoro") {
+    console.log("Pomodoro session complete.");
+    notifDetails = {
+      type: "basic",
+      title: "Pomodoro Session Complete",
+      message: "Time for a break!",
+      iconUrl: "icons/icon.png"
+    };
+    browser.notifications.create(notifDetails);
+  } else if (alarm.name === "break") {
+    console.log("Break session complete.");
+    notifDetails = {
+      type: "basic",
+      title: "Break Session Complete",
+      message: "Back to work!",
+      iconUrl: "icons/icon.png"
+    };
+    browser.notifications.create(notifDetails);
+  }
+}
+);
+
+function createAlarm(name, when) {
+  browser.alarms.create(name, { when: when });
+}
 
 function checkBlocklist(tab) {
   const url = new URL(tab.url);
@@ -34,7 +68,6 @@ function closeBlockedTabs() {
 }
 
 
-
 browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (isWorkMode &&changeInfo.url) {
     checkBlocklist(tab);
@@ -48,12 +81,16 @@ function startPomodoroTimer() {
   }
   borderColor = "red";
 
-  isWorkMode = true;
-  remainingTime = timerDuration / 1000;
-  console.log("Pomodoro timer started. Work mode activated.");
+  startTimestamp = Date.now();
+  alarmAt = startTimestamp + timerDuration;
 
-  updateUI();
-  closeBlockedTabs();
+
+  isWorkMode = true;
+
+
+  remainingTime = timerDuration / 1000;
+
+  // Update the UI every second
 
   timerInterval = setInterval(() => {
     if (remainingTime > 0) {
@@ -61,27 +98,34 @@ function startPomodoroTimer() {
       updateUI();
     } else {
       clearInterval(timerInterval);
-      sessionCount++;
       timerInterval = null;
-      isWorkMode = false;
-      console.log("Work session complete. Time for a break!");
-      browser.runtime.sendMessage({
-        action:"sendNotification"
-      });
+  }
+  },1000);
+  console.log("Pomodoro timer started. Work mode activated.");
+
+  updateUI();
+  closeBlockedTabs();
+
+  browser.alarms.clear("break");
+
+  createAlarm("pomodoro", alarmAt);
 
 
-      startBreakTimer();
-  
-    }
-  }, 1000);
 }
 
 // Start the Break Timer
 function startBreakTimer() {
   console.log("Break timer started. Enjoy your break!");
   remainingTime = breakDuration / 1000;
+  isWorkMode = false;
   borderColor = "green";
   updateUI();
+
+  browser.alarms.clear("pomodoro");
+
+
+  alarmAt = Date.now() + breakDuration;
+  createAlarm("break", alarmAt);
   
   timerInterval = setInterval(() => {
     if (remainingTime > 0) {
@@ -137,6 +181,14 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
   } else if (request.action === "stopTimer") {
     stopTimer();
     sendResponse({ status: "Timer stopped" });
+  } else if (request.action === "getTimerState") {
+    sendResponse({
+      remainingTime: remainingTime,
+      isWorkMode: isWorkMode,
+      sessionCount: sessionCount,
+      breakCount: breakCount,
+      borderColor: borderColor
+    });
   }
 });
 
