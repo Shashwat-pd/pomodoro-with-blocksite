@@ -1,6 +1,6 @@
 console.log("Pomodoro Timer Extension Background Script Loaded");
 
-let timerDuration = 0.1 * 60 * 1000; // 25 minutes in milliseconds
+let timerDuration = 25 * 60 * 1000; // 25 minutes in milliseconds
 let breakDuration = 5 * 60 * 1000; // 5 minutes in milliseconds
 let remainingTime = timerDuration / 1000; // Remaining time in seconds
 let timerInterval = null;
