@@ -1,15 +1,21 @@
+
+
+let remainingTime = 0; 
+let isActive = false; 
+let isWorkMode;
+
+
+let responseHandler;
+
+
 const timerDisplay = document.getElementById("time");
 const startStopBtn = document.getElementById("start-button");
 const sessionCount = document.getElementById("session-count");
 const breakCount = document.getElementById("break-count");
 const switchBtn = document.getElementById("switch-button");
 
-let isActive = false;
+let timerDuration = 0.1*60*1000;
 
-
-let isWorkMode = browser.runtime.sendMessage({ action: "getTimerState" }).then((response) => {
-  return response.isWorkMode;
-}).catch(console.error);
 
 
 document.body.style.border = `5px solid white`;
@@ -21,89 +27,97 @@ function formatTime(seconds) {
   return `${minutes}:${secs < 10 ? "0" : ""}${secs}`;
 }
 
-function updateUI() {
-  browser.runtime.sendMessage({ action: "getTimerState" }).then((response) => {
-    if (response) {
-      if (response.remainingTime > 1) {
-        timerDisplay.textContent = formatTime(response.remainingTime);
-        sessionCount.textContent = response.sessionCount;
-        breakCount.textContent = response.breakCount;
-        startStopBtn.textContent = response.isWorkMode ? "Stop Session" : "Start Session";
-        switchBtn.textContent = response.isWorkMode ? "Start Break" : "Stop Break";
-        document.body.style.border = `5px solid ${response.borderColor}`;
-      } else {
-        if (isActive){
-        let i = 0; 
-        const forwardTimer = setInterval(() => {
-          if (!response.isWorkMode) {
-            clearInterval(forwardTimer); 
-            return;
-          }
-          timerDisplay.textContent = formatTime(i);
-          i++;
-        }, 1000); 
-      }
-    }
-    }
+
+function getCurrentState () {
+  console.log("From getCurrentState")
+  browser.runtime.sendMessage({ action: "getCurrentState" }).then((response) => {
+    isActive = response.isActive;
+    remainingTime = response.remainingTime;
+    isWorkMode = response.isWorkMode;
+    updateUI();
   }).catch(console.error);
 }
 
 
 
 
+function updateUI() {
+  if(isActive){
+    if(isWorkMode){
+      switchBtn.textContent = "Start Break";
+    }else{
+      switchBtn.textContent = "Start Session";
+    }
+    startStopBtn.textContent = "Stop";
+    timerDisplay.textContent = formatTime(remainingTime);
+    switchBtn.disabled = false;
+  }
+  else{
+    startStopBtn.textContent = "Start";
+    switchBtn.disabled = true;
+    timerDisplay.textContent = formatTime(timerDuration / 1000);
+  }
+  
 
+
+}
 
 function Start(){
-  isActive = !isActive;
+  console.log("From Start")
+  console.log(isActive);
 
-  if (startStopBtn.textContent === "Start Session") {
+
+  if (isActive) {
     console.log("Starting session...");
     browser.runtime.sendMessage({ action: "startSession" })
     }
-  else if (startStopBtn.textContent === "Stop Session") {
-
+  else {
+    console.log("Stopping session...");
     browser.runtime.sendMessage({ action: "stopTimer" })
   }
 
 }
 
 function Switch(){
-  if (switchBtn.textContent === "Start Break") {
-    console.log("Starting break...");
-    browser.runtime.sendMessage({ action: "startBreak" }).then((response) => {
-      if (response) {
-        switchBtn.textContent = "Stop Break";
-      }
-    }).catch(console.error);
-  } else if (switchBtn.textContent === "Stop Break") {
-    console.log("Stopping break...");
-    browser.runtime.sendMessage({ action: "stopTimer" }).then((response) => {
-      if (response) {
-        switchBtn.textContent = "Start Break";
-      }
-    }).catch(console.error);
+  if(isWorkMode){
+    browser.runtime.sendMessage({ action: "startBreak" })
+  }
+  else{
+    browser.runtime.sendMessage({ action: "startSession" })
   }
 }
 
 
 window.onload = () => {
-  startStopBtn.addEventListener("click", () => Start());
-  switchBtn.addEventListener("click", () => Switch());
-  updateUI();
+
+
+startStopBtn.addEventListener("click", ()=> {
+  console.log("Clicked")
+  browser.runtime.sendMessage({ action: "flipActiveMode" }).then((response) => {
+    console.log(isActive);
+    isActive = response.isActive;
+    console.log(isActive);
+
+    Start();
+  }).catch(console.error);
+});
+switchBtn.addEventListener("click", Switch);
+
+
+getCurrentState();
 }
 
 
 browser.runtime.onMessage.addListener((message) => {
   if (message.action === "updateTimer") {
-    updateUI();
+    console.log("here")
+    getCurrentState();
 
   } else if (message.action === "timerStopped") {
-    timerDisplay.textContent = "05:00";
     document.body.style.border = `5px solid ${message.borderColor}`;
   }
   else if (message.action === "sendNotification") {
     sendNotification();
   }
-
 });
 

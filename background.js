@@ -14,6 +14,8 @@ let activeTabId = null;
 let borderColor = null;
 let redirectUrl = "https://www.neetcode.io";
 
+let forwardTimerID = null;
+let isActive = false;
 
 let alarmAt = null;
 
@@ -58,7 +60,7 @@ function checkBlocklist(tab) {
 function closeBlockedTabs() {
   browser.tabs.query({}).then((tabs) => {
     tabs.forEach((tab) => {
-      const url = new URL(tab.url).hostname.replace("www.", ""); // Normalize hostname
+      const url = new URL(tab.url).hostname.replace("www.", ""); 
       if (blockedSites.includes(url)) {
         console.log(`Closing blocked site tab: ${url}`);
         browser.tabs.remove(tab.id); 
@@ -94,16 +96,17 @@ function startPomodoroTimer() {
 
   timerInterval = setInterval(() => {
     if (remainingTime > 0) {
-      remainingTime--;
       updateUI();
+      remainingTime--;
     } else {
       clearInterval(timerInterval);
       timerInterval = null;
+      forwardTimer();
   }
   },1000);
   console.log("Pomodoro timer started. Work mode activated.");
 
-  updateUI();
+
   closeBlockedTabs();
 
   browser.alarms.clear("break");
@@ -113,15 +116,31 @@ function startPomodoroTimer() {
 
 }
 
+
+function forwardTimer() {
+  console.log("Forward timer started. Enjoy your break!");
+  let i = 0;
+  const forwardTimerID = setInterval(() => {
+ 
+    remainingTime = i;
+    updateUI();
+    i++;
+  }, 1000);
+}
+
+
 // Start the Break Timer
 function startBreakTimer() {
   console.log("Break timer started. Enjoy your break!");
   remainingTime = breakDuration / 1000;
   isWorkMode = false;
   borderColor = "green";
-  updateUI();
+
 
   browser.alarms.clear("pomodoro");
+  if (timerInterval) {
+    clearInterval(timerInterval);
+  }
 
 
   alarmAt = Date.now() + breakDuration;
@@ -145,8 +164,17 @@ function startBreakTimer() {
 function stopTimer() {
   sessionCount = 0;
   breakCount = 0;
+  clearInterval(forwardTimerID);
+  forwardTimerID = null;
+  isWorkMode = false;
+
+  //clear all active alarms
+  browser.alarms.clearAll();
+
+
+
   borderColor = "white";
-  if (timerInterval) {
+  if (timerInterval) {  
     clearInterval(timerInterval);
     timerInterval = null;
     isWorkMode = false;
@@ -164,30 +192,42 @@ function stopTimer() {
 
 // Update the UI function (message passing to popup.js)
 function updateUI() {
+  console.log("Updating UI...");
   browser.runtime.sendMessage({
-    action: "updateTimer",
-    remainingTime: remainingTime,
-    isWorkMode: isWorkMode,
-    sessionCount: sessionCount,
-    breakCount: breakCount,
-    borderColor: borderColor
+    action: "updateTimer"
   });
 }
+
+
 
 browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "startSession") {
     startPomodoroTimer();
     sendResponse({ status: "Timer started" });
   } else if (request.action === "stopTimer") {
+    console.log("here")
     stopTimer();
     sendResponse({ status: "Timer stopped" });
+  }else if(request.action === "startBreak"){
+    startBreakTimer();
+    sendResponse({ status: "Break started" });
   } else if (request.action === "getTimerState") {
     sendResponse({
+      isActive: isActive,
       remainingTime: remainingTime,
       isWorkMode: isWorkMode,
       sessionCount: sessionCount,
       breakCount: breakCount,
       borderColor: borderColor
+    });
+  } else if (request.action === "flipActiveMode") {
+    isActive = !isActive;
+    sendResponse({ isActive: isActive });
+  } else if (request.action === "getCurrentState") {
+    sendResponse({
+      isActive: isActive,
+      isWorkMode: isWorkMode,
+      remainingTime: remainingTime,
     });
   }
 });
