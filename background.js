@@ -1,5 +1,3 @@
-console.log("Pomodoro Timer Extension Background Script Loaded");
-
 let timerDuration = 0.1 * 60 * 1000; // 25 minutes in milliseconds
 let breakDuration = 5 * 60 * 1000; // 5 minutes in milliseconds
 let remainingTime = timerDuration / 1000; // Remaining time in seconds
@@ -22,27 +20,30 @@ let alarmAt = null;
 
 //shoot notification when alarm goes off
 browser.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === "pomodoro") {
-    console.log("Pomodoro session complete.");
-    notifDetails = {
-      type: "basic",
+  const notifications = {
+    pomodoro: {
       title: "Pomodoro Session Complete",
       message: "Time for a break!",
-      iconUrl: "icons/icon.png"
-    };
-    browser.notifications.create(notifDetails);
-  } else if (alarm.name === "break") {
-    console.log("Break session complete.");
-    notifDetails = {
-      type: "basic",
+    },
+    break: {
       title: "Break Session Complete",
       message: "Back to work!",
+    }
+  };
+
+  if (notifications[alarm.name]) {
+
+    const notifDetails = {
+      type: "basic",
+      title: notifications[alarm.name].title,
+      message: notifications[alarm.name].message,
       iconUrl: "icons/icon.png"
     };
+
     browser.notifications.create(notifDetails);
   }
-}
-);
+});
+
 
 function createAlarm(name, when) {
   browser.alarms.create(name, { when: when });
@@ -76,11 +77,21 @@ browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   }
 });
 
-function startPomodoroTimer() {
+
+function clearTimers() {
   if (timerInterval) {
-    console.log("Pomodoro timer is already running!");
-    return;
+    clearInterval(timerInterval);
+    timerInterval = null;
   }
+  if (forwardTimerID) {
+    clearInterval(forwardTimerID);
+    forwardTimerID = null;
+  }
+}
+
+function startPomodoroTimer() {
+  clearTimers();
+
   borderColor = "red";
 
   startTimestamp = Date.now();
@@ -88,6 +99,8 @@ function startPomodoroTimer() {
 
 
   isWorkMode = true;
+  
+  updateUI();
 
 
   remainingTime = timerDuration / 1000;
@@ -96,11 +109,13 @@ function startPomodoroTimer() {
 
   timerInterval = setInterval(() => {
     if (remainingTime > 0) {
-      updateUI();
       remainingTime--;
+      updateUI();
     } else {
       clearInterval(timerInterval);
       timerInterval = null;
+      sessionCount++;
+
       forwardTimer();
   }
   },1000);
@@ -120,7 +135,7 @@ function startPomodoroTimer() {
 function forwardTimer() {
   console.log("Forward timer started. Enjoy your break!");
   let i = 0;
-  const forwardTimerID = setInterval(() => {
+  forwardTimerID = setInterval(() => {
  
     remainingTime = i;
     updateUI();
@@ -138,9 +153,7 @@ function startBreakTimer() {
 
 
   browser.alarms.clear("pomodoro");
-  if (timerInterval) {
-    clearInterval(timerInterval);
-  }
+  clearTimers()
 
 
   alarmAt = Date.now() + breakDuration;
@@ -160,18 +173,15 @@ function startBreakTimer() {
   }, 1000);
 }
 
-// Stop the Timer
+
 function stopTimer() {
   sessionCount = 0;
   breakCount = 0;
-  clearInterval(forwardTimerID);
-  forwardTimerID = null;
+  clearTimers();
+
   isWorkMode = false;
 
-  //clear all active alarms
   browser.alarms.clearAll();
-
-
 
   borderColor = "white";
   if (timerInterval) {  
@@ -194,41 +204,51 @@ function stopTimer() {
 function updateUI() {
   console.log("Updating UI...");
   browser.runtime.sendMessage({
-    action: "updateTimer"
+    action: "updateTimer",
+    isActive: isActive,
+    isWorkMode: isWorkMode,
+    remainingTime: remainingTime,
+    sessionCount: sessionCount,
+    breakCount: breakCount,
+
+
   });
 }
 
 
-
-browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === "startSession") {
+const messageHandlers = {
+  startSession: (request, sender, sendResponse) => {
     startPomodoroTimer();
     sendResponse({ status: "Timer started" });
-  } else if (request.action === "stopTimer") {
-    console.log("here")
+  },
+  stopTimer: (request, sender, sendResponse) => {
     stopTimer();
     sendResponse({ status: "Timer stopped" });
-  }else if(request.action === "startBreak"){
+  },
+  startBreak: (request, sender, sendResponse) => {
     startBreakTimer();
     sendResponse({ status: "Break started" });
-  } else if (request.action === "getTimerState") {
-    sendResponse({
-      isActive: isActive,
-      remainingTime: remainingTime,
-      isWorkMode: isWorkMode,
-      sessionCount: sessionCount,
-      breakCount: breakCount,
-      borderColor: borderColor
-    });
-  } else if (request.action === "flipActiveMode") {
+  },
+  flipActiveMode: (request, sender, sendResponse) => {
     isActive = !isActive;
     sendResponse({ isActive: isActive });
-  } else if (request.action === "getCurrentState") {
+  },
+  getCurrentState: (request, sender, sendResponse) => {
     sendResponse({
       isActive: isActive,
       isWorkMode: isWorkMode,
       remainingTime: remainingTime,
+      sessionCount: sessionCount,
+      breakCount: breakCount,
     });
+  },
+};
+
+browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (messageHandlers[request.action]) {
+    messageHandlers[request.action](request, sender, sendResponse);
+  } else {
+    console.warn(`Unknown action: ${request.action}`);
   }
 });
 
