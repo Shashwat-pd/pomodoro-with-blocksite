@@ -1,7 +1,7 @@
 let remainingTime = 0; 
 let isActive = false; 
 let isWorkMode;
-let timerDuration = 0.1*60*1000;
+let timerDuration = 25*60*1000;
 let sessionCount = 0;
 let breakCount = 0;
 

@@ -1,10 +1,10 @@
-let timerDuration = 0.1 * 60 * 1000; // 25 minutes in milliseconds
+let timerDuration = 25 * 60 * 1000; // 25 minutes in milliseconds
 let breakDuration = 5 * 60 * 1000; // 5 minutes in milliseconds
 let remainingTime = timerDuration / 1000; // Remaining time in seconds
 let startTimestamp = null;
 let timerInterval = null;
 let isWorkMode = false;
-
+let disAllowed = false;
 let sessionCount = 0;
 let breakCount = 0;
 let blockedSites = ["reddit.com", "x.com", "instagram.com"];
@@ -72,7 +72,7 @@ function closeBlockedTabs() {
 
 
 browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (isWorkMode &&changeInfo.url) {
+  if ((disAllowed) && changeInfo.url ) {
     checkBlocklist(tab);
   }
 });
@@ -146,6 +146,7 @@ function forwardTimer() {
 
 // Start the Break Timer
 function startBreakTimer() {
+  disAllowed = false;
   console.log("Break timer started. Enjoy your break!");
   remainingTime = breakDuration / 1000;
   isWorkMode = false;
@@ -168,7 +169,10 @@ function startBreakTimer() {
       timerInterval = null;
       breakCount++;
       console.log("Break session complete. Back to work!");
-      startPomodoroTimer();
+      disAllowed = true;
+      closeBlockedTabs();
+
+      forwardTimer();
     }
   }, 1000);
 }
@@ -178,7 +182,7 @@ function stopTimer() {
   sessionCount = 0;
   breakCount = 0;
   clearTimers();
-
+  disAllowed = false;
   isWorkMode = false;
 
   browser.alarms.clearAll();
